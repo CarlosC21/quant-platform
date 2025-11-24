@@ -3,13 +3,15 @@ name = "quant-platform"
 version = "0.1.0"
 description = "Full multi-asset quant research & trading platform"
 authors = [
-    {name = "Carlos",email = "cscastillo1209@gmail.com"}
+    { name = "Carlos", email = "cscastillo1209@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-dependencies = [
-]
+dependencies = []
 
+# This tells Poetry where your package lives (very important)
+[tool.poetry]
+packages = [{ include = "quant_platform", from = "src" }]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
