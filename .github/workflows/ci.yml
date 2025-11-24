@@ -24,26 +24,22 @@ jobs:
         with:
           poetry-version: "2.2.1"
 
-      # Cache Poetry virtualenvs for faster CI
-      - name: Configure Poetry cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
+      # INSTALL ALL DEPENDENCIES, INCLUDING DEV
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
 
-      - name: Install dependencies (incl. dev)
-        run: poetry install --no-interaction --with dev
-
+      # Build wheel (tests importing from installed package)
       - name: Build wheel
         run: poetry build -f wheel
 
-      - name: Install built package
-        run: pip install dist/*.whl
+      # Install wheel into environment
+      - name: Install built wheel
+        run: poetry run pip install dist/*.whl
 
-      - name: Run pre-commit (format & lint)
+      # Lint
+      - name: Run pre-commit
         run: poetry run pre-commit run --all-files
 
+      # Tests
       - name: Run tests
-        run: pytest -q
+        run: poetry run pytest -q
