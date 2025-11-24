@@ -1,0 +1,23 @@
+// .devcontainer/devcontainer.json
+{
+  "name": "quant-platform-dev",
+  "context": "..",
+  "dockerFile": "../docker/Dockerfile.dev",
+  "workspaceFolder": "/workspace",
+  "runArgs": [ "--init" ],
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "python.defaultInterpreterPath": "/usr/local/bin/python"
+  },
+  "extensions": [
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "ms-vscode.makefile-tools",
+    "esbenp.prettier-vscode"
+  ],
+  "postCreateCommand": "poetry install --no-interaction --with dev",
+  "remoteUser": "dev"
+}
