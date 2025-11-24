@@ -7,11 +7,13 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
+
 dependencies = []
 
-# This tells Poetry where your package lives (very important)
-[tool.poetry]
-packages = [{ include = "quant_platform", from = "src" }]
+# IMPORTANT: tells Poetry where your package lives
+packages = [
+    { include = "quant_platform", from = "src" }
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
