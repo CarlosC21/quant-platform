@@ -1,5 +1,5 @@
 [project]
-name = "quant-platform"
+name = "quant_platform"
 version = "0.1.0"
 description = "Full multi-asset quant research & trading platform"
 authors = [

@@ -1,10 +1,9 @@
-// .devcontainer/devcontainer.json
 {
   "name": "quant-platform-dev",
   "context": "..",
   "dockerFile": "../docker/Dockerfile.dev",
   "workspaceFolder": "/workspace",
-  "runArgs": [ "--init" ],
+  "runArgs": ["--init"],
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
   ],
@@ -18,6 +17,9 @@
     "ms-vscode.makefile-tools",
     "esbenp.prettier-vscode"
   ],
-  "postCreateCommand": "poetry install --no-interaction --with dev",
+  "containerEnv": {
+    "PYTHONPATH": "/workspace/src"
+  },
+  "postCreateCommand": "echo 'devcontainer ready'",
   "remoteUser": "dev"
 }
