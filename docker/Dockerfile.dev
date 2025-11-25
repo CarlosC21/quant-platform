@@ -1,5 +1,5 @@
 # docker/Dockerfile.dev
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     POETRY_HOME="/opt/poetry" \
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         bash-completion \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry (official installer; no deprecated flags)
+# Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 WORKDIR /workspace
@@ -31,7 +31,7 @@ COPY pyproject.toml poetry.lock* /workspace/
 RUN poetry config virtualenvs.create false \
  && poetry install --no-interaction --with dev --no-root
 
-# Copy the full repository (project files, README, src/)
+# Copy full repository
 COPY . /workspace
 
 # Create non-root user and set ownership
