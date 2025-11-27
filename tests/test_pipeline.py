@@ -16,7 +16,7 @@ async def test_pipeline_end_to_end(tmp_path):
     )
     macro_csv = tmp_path / "macro.csv"
     macro_csv.write_text(
-        "indicator,date,value\n" "CPI,2025-11-25,300.5\n" "GDP,2025-11-25,2100.0\n"
+        "indicator,date,value\nCPI,2025-11-25,300.5\nGDP,2025-11-25,2100.0\n"
     )
 
     pipeline = DataPipeline(str(equities_csv), str(macro_csv))

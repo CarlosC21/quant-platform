@@ -7,7 +7,9 @@ import pytest
 from src.quant_platform.data.ingestion.equities import EquitiesIngestor
 from src.quant_platform.data.schemas.equities import EquityPriceSchema
 from src.quant_platform.data.validation.validators import (
-    ValidationError, validate_equity_records)
+    ValidationError,
+    validate_equity_records,
+)
 
 # Sample CSV data
 sample_data = pl.DataFrame(

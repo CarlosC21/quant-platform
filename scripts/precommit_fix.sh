@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
-# Safely remove stale caches if present (ignore errors)
-git rm -r --cached tests/__pycache__ || true
-git rm -r --cached src/**/__pycache__ || true
-git rm --cached *.pyc || true || true
+echo "Running pre-commit hooks with auto-fix..."
+pre-commit run --all-files || true
 
-# Run pre-commit hooks (auto-fix where supported)
-pre-commit run --all-files
+echo "Fixing with ruff..."
+ruff . --fix || true
 
-# Restage all files (including fixes)
+echo "Applying isort..."
+isort . || true
+
+echo "Staging all changes..."
 git add -A
+
+echo "Done. Now you can commit and push."

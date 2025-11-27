@@ -4,8 +4,9 @@ from typing import List
 import polars as pl
 
 from src.quant_platform.data.ingestion.base import BaseIngestor
-from src.quant_platform.data.validation.options_validators import \
-    validate_option_records
+from src.quant_platform.data.validation.options_validators import (
+    validate_option_records,
+)
 from src.quant_platform.options.schemas import OptionQuoteSchema
 
 

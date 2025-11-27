@@ -1,59 +1,82 @@
 # Quant Platform
 
-Multi-asset quantitative research & trading system (work-in-progress).
+A modular, production-oriented multi-asset quantitative research & trading system.
 
-Overview
+This platform is built for **interview-grade rigor**, **mathematical correctness**, and **clean modular architecture**, covering:
 
-This platform is a modular, production-oriented system for:
+- Equities, macro, options, and fixed-income data ingestion  
+- Validation via Pydantic v2 domain schemas  
+- Feature engineering for equities & macro  
+- Option-pricing models (Black-Scholes, Greeks, IV, surfaces)  
+- Yield curve bootstrapping (NS/Svensson), fixed-income ingestion (FRED)  
+- Feature Store (in-memory, extendable)  
+- End-to-end pipelines combining ingestion → validation → features → store  
+- Full unit test coverage
 
-Equities, macro, and eventually multi-asset data ingestion.
+This repository is the foundation for a complete multi-asset quant research, modeling, and trading environment.
 
-Data validation with Pydantic schemas and domain-specific rules.
+---
 
-Feature computation for both equities and macro indicators.
-
-Storing and retrieving features via an in-memory feature store.
-
-End-to-end pipelines combining ingestion, feature engineering, and storage.
-
-The project is structured for interview-grade rigor, modularity, and full test coverage.
-
-Installation
+## 📦 Installation
 
 Clone the repo:
 
+```bash
 git clone https://github.com/CarlosC21/quant-platform.git
 cd quant-platform
 
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate      # Windows
 
-Create a virtual environment:
+poetry install
 
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-venv\Scripts\activate     # Windows
+## Quick Usage Example
 
+from quant_platform.data.ingestion.pipelines import DataPipeline
 
-Install dependencies:
+pipeline = DataPipeline(
+    equities_path="data/sp500_sample.csv",
+    macro_path="data/macro_sample.csv"
+)
 
-pip install -r requirements.txt
-
-Usage
-Run Tests
-python -m pytest -v
-python -m pytest --cov=src/quant_platform
-
-
-All tests should pass, with coverage around 94%.
-
-Ingest Data & Compute Features
-from src.quant_platform.data.ingestion.pipelines import DataPipeline
-
-pipeline = DataPipeline("path/to/equities.csv", "path/to/macro.csv")
 feature_store = await pipeline.run()
-
 print(feature_store.list_features())
 
-Project Structure
+This demonstrates:
+
+reading raw data
+
+validating via schemas
+
+computing features
+
+writing to the FeatureStore
+
+Options Example 
+
+from quant_platform.options.data_ingestion import ingest_option_chain
+import polars as pl
+
+df_raw = pl.read_csv("data/aapl_options.csv")
+df = ingest_option_chain(df_raw)
+print(df.head())
+
+Fixed Income Example (FRED API)
+
+from quant_platform.fixed_income.ingestion.fred import FredYieldCurveIngestor
+
+ing = FredYieldCurveIngestor(api_key="YOUR_FRED_KEY")
+df = await ing.fetch_treasury_yields()
+print(df)
+
+Run Tests 
+
+pytest -v
+pytest --cov=src/quant_platform --cov-report=term-missing
+
+Project Structure 
+
 src/
 └─ quant_platform/
    ├─ data/
@@ -63,29 +86,34 @@ src/
    │  ├─ ingestion/
    │  │  ├─ equities.py
    │  │  ├─ macro.py
+   │  │  ├─ options/
+   │  │  ├─ fixed_income/
    │  │  ├─ pipelines.py
    │  │  └─ base.py
    │  ├─ schemas/
-   │  │  ├─ equities.py
-   │  │  └─ macro.py
    │  └─ validation/
-   │     └─ validators.py
+   ├─ options/
+   │  ├─ greeks.py
+   │  ├─ black_scholes.py
+   │  ├─ implied_vol.py
+   │  ├─ iv_surface.py
+   │  └─ data_ingestion.py
+   ├─ fixed_income/
+   │  ├─ fred_ingestion.py
+   │  ├─ yield_curve.py
+   │  └─ schemas.py
    └─ __init__.py
+
 tests/
-└─ ...
 
-Testing & Coverage
+🧠 Notes
 
-Unit tests: pytest for ingestion, validation, feature computation, and pipelines.
+Weeks 1–2: repo structure, ingestion framework, feature store, tests → complete
 
-Async support: via pytest-asyncio.
+Options layer is functional: BS pricing, Greeks, IV solver, surface builder
 
-Polars is used for fast DataFrame operations.
+Fixed-income layer (FRED + NS/Svensson bootstrapping) under implementation
 
-Pydantic v2 is used for schema validation.
+High-performance data handling via Polars
 
-Notes
-
-Week 1 & 2 features are complete: repo structure, CI, basic pipelines, ingestion, validation, feature engineering.
-
-All pipelines run successfully on sample data, and feature store saves/retrieves features correctly.
+All ingestion is async-compatible

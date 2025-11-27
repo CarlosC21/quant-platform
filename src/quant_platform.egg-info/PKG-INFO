@@ -1,0 +1,143 @@
+Metadata-Version: 2.4
+Name: quant_platform
+Version: 0.1.0
+Summary: Full multi-asset quant research & trading platform
+Author-email: Carlos <cscastillo1209@gmail.com>
+Requires-Python: <3.14,>=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: polars>=1.7.1
+Requires-Dist: pydantic>=2.8.2
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.12
+Requires-Dist: fredapi>=0.5.2
+Requires-Dist: httpx>=0.27
+Requires-Dist: aiohttp>=3.9
+Requires-Dist: tqdm>=4.66
+Provides-Extra: dev
+Requires-Dist: pytest<10.0,>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: ruff>=0.14; extra == "dev"
+Requires-Dist: black>=25.0; extra == "dev"
+Requires-Dist: isort>=7.0; extra == "dev"
+Requires-Dist: pre-commit>=4.5; extra == "dev"
+
+# Quant Platform
+
+A modular, production-oriented multi-asset quantitative research & trading system.
+
+This platform is built for **interview-grade rigor**, **mathematical correctness**, and **clean modular architecture**, covering:
+
+- Equities, macro, options, and fixed-income data ingestion  
+- Validation via Pydantic v2 domain schemas  
+- Feature engineering for equities & macro  
+- Option-pricing models (Black-Scholes, Greeks, IV, surfaces)  
+- Yield curve bootstrapping (NS/Svensson), fixed-income ingestion (FRED)  
+- Feature Store (in-memory, extendable)  
+- End-to-end pipelines combining ingestion → validation → features → store  
+- Full unit test coverage
+
+This repository is the foundation for a complete multi-asset quant research, modeling, and trading environment.
+
+---
+
+## 📦 Installation
+
+Clone the repo:
+
+```bash
+git clone https://github.com/CarlosC21/quant-platform.git
+cd quant-platform
+
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate      # Windows
+
+poetry install
+
+## Quick Usage Example
+
+from quant_platform.data.ingestion.pipelines import DataPipeline
+
+pipeline = DataPipeline(
+    equities_path="data/sp500_sample.csv",
+    macro_path="data/macro_sample.csv"
+)
+
+feature_store = await pipeline.run()
+print(feature_store.list_features())
+
+This demonstrates:
+
+reading raw data
+
+validating via schemas
+
+computing features
+
+writing to the FeatureStore
+
+Options Example 
+
+from quant_platform.options.data_ingestion import ingest_option_chain
+import polars as pl
+
+df_raw = pl.read_csv("data/aapl_options.csv")
+df = ingest_option_chain(df_raw)
+print(df.head())
+
+Fixed Income Example (FRED API)
+
+from quant_platform.fixed_income.ingestion.fred import FredYieldCurveIngestor
+
+ing = FredYieldCurveIngestor(api_key="YOUR_FRED_KEY")
+df = await ing.fetch_treasury_yields()
+print(df)
+
+Run Tests 
+
+pytest -v
+pytest --cov=src/quant_platform --cov-report=term-missing
+
+Project Structure 
+
+src/
+└─ quant_platform/
+   ├─ data/
+   │  ├─ feature_store/
+   │  │  ├─ store.py
+   │  │  └─ features.py
+   │  ├─ ingestion/
+   │  │  ├─ equities.py
+   │  │  ├─ macro.py
+   │  │  ├─ options/
+   │  │  ├─ fixed_income/
+   │  │  ├─ pipelines.py
+   │  │  └─ base.py
+   │  ├─ schemas/
+   │  └─ validation/
+   ├─ options/
+   │  ├─ greeks.py
+   │  ├─ black_scholes.py
+   │  ├─ implied_vol.py
+   │  ├─ iv_surface.py
+   │  └─ data_ingestion.py
+   ├─ fixed_income/
+   │  ├─ fred_ingestion.py
+   │  ├─ yield_curve.py
+   │  └─ schemas.py
+   └─ __init__.py
+
+tests/
+
+🧠 Notes
+
+Weeks 1–2: repo structure, ingestion framework, feature store, tests → complete
+
+Options layer is functional: BS pricing, Greeks, IV solver, surface builder
+
+Fixed-income layer (FRED + NS/Svensson bootstrapping) under implementation
+
+High-performance data handling via Polars
+
+All ingestion is async-compatible

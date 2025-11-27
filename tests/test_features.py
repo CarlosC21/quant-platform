@@ -2,7 +2,9 @@
 import polars as pl
 
 from src.quant_platform.data.feature_store.features import (
-    compute_equity_features, compute_macro_features)
+    compute_equity_features,
+    compute_macro_features,
+)
 
 
 def test_equity_features():
