@@ -12,7 +12,10 @@ from scipy.stats import norm
 # --------------------------
 def _d1_d2(S, K, T, r, sigma):
     sqrtT = np.sqrt(T)
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * sqrtT)
+    d1 = np.where(
+        T > 0, (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T)), 0
+    )
+
     d2 = d1 - sigma * sqrtT
     return d1, d2
 
