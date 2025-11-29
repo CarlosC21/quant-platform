@@ -1,4 +1,7 @@
+# src/quant_platform/data/feature_store/features.py
 import polars as pl
+
+__all__ = ["compute_equity_features", "compute_macro_features"]
 
 
 def compute_equity_features(df: pl.DataFrame) -> pl.DataFrame:
@@ -48,7 +51,6 @@ def compute_macro_features(df: pl.DataFrame) -> pl.DataFrame:
     std_val = df["value"].std()
 
     if std_val in (0, None):
-        # if std is zero or None (single value), produce zeros
         df = df.with_columns([pl.lit(0.0).alias("normalized_value")])
     else:
         df = df.with_columns(
