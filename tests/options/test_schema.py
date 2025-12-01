@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from src.quant_platform.data.schemas.options import OptionRecord
+from quant_platform.data.schemas.options import OptionRecord
 
 
 def test_valid_option_record():

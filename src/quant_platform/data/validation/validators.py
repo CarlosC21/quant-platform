@@ -1,7 +1,7 @@
 # src/quant_platform/data/validation/validators.py
 from typing import List
 
-from src.quant_platform.data.schemas.equities import EquityPriceSchema
+from quant_platform.data.schemas.equities import EquityPriceSchema
 
 
 class ValidationError(Exception):

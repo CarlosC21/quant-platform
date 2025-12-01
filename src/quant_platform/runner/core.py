@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Protocol, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 import numpy as np
 import pandas as pd
@@ -12,65 +12,58 @@ from quant_platform.execution.context import ExecutionContext
 LOGGER = logging.getLogger(__name__)
 
 
-# ===============================================================
-# Strategy Protocol
-# ===============================================================
+# =====================================================================
+# Strategy protocol
+# =====================================================================
 
 
 class Strategy(Protocol):
-    """
-    Minimal interface that strategies must implement to be usable with the runner.
-    """
-
-    def on_start(self, context: RunContext) -> None:
+    def on_start(self, context: "RunContext") -> None:
         ...
 
-    def on_bar(self, context: RunContext, bar_data: pd.DataFrame) -> None:
+    def on_bar(self, context: "RunContext", bar_data: pd.DataFrame) -> None:
         ...
 
-    def on_end(self, context: RunContext) -> None:
+    def on_end(self, context: "RunContext") -> None:
         ...
 
 
-# ===============================================================
-# Runtime Context
-# ===============================================================
+# =====================================================================
+# Run context + result containers
+# =====================================================================
 
 
 @dataclass
 class RunContext:
-    """
-    Runtime context passed to strategies during a backtest.
-    """
-
     timestamp: pd.Timestamp
     bar_index: int
     execution_context: ExecutionContext
     config: Any | None
     extra: Dict[str, Any]
-
-    # NEW FIELDS (your strategy requires these)
     market_data: Optional[pd.DataFrame] = None
     current_bar: Optional[pd.DataFrame] = None
 
 
-# ===============================================================
-# Results Container
-# ===============================================================
-
-
 @dataclass
 class BacktestResult:
+    """
+    Container for full backtest results — Week 12 compatible.
+
+    positions_ts:
+        Optional DataFrame of position snapshots per bar.
+    """
+
     equity_curve: pd.Series
     drawdowns: pd.Series
     risk_metrics: Dict[str, float]
     prices_last: pd.DataFrame
     config: Any | None
+    positions_ts: Optional[pd.DataFrame] = None
 
 
-# ===============================================================
-# Internal helpers
-# ===============================================================
+# =====================================================================
+# Helpers
+# =====================================================================
 
 
 def _iterate_timestamps(market_data: pd.DataFrame) -> pd.Index:
@@ -93,21 +86,19 @@ def _extract_prices_for_ledger(
     bar_data: pd.DataFrame,
     price_col: str = "close",
 ) -> Dict[str, float]:
-    # Symbol index case
+    # Index = symbol
     if bar_data.index.name == "symbol":
-        return {
-            str(symbol): float(row[price_col]) for symbol, row in bar_data.iterrows()
-        }
+        return {str(sym): float(row[price_col]) for sym, row in bar_data.iterrows()}
 
     # MultiIndex
     if isinstance(bar_data.index, pd.MultiIndex):
-        syms = bar_data.index.get_level_values(-1)
+        symbols = bar_data.index.get_level_values(-1)
         return {
             str(sym): float(bar_data.xs(sym, level=-1)[price_col])
-            for sym in syms.unique()
+            for sym in symbols.unique()
         }
 
-    # Flat DataFrame with symbol column
+    # Flat with 'symbol' column
     if "symbol" in bar_data.columns:
         return {
             str(row["symbol"]): float(row[price_col]) for _, row in bar_data.iterrows()
@@ -148,7 +139,14 @@ def _compute_risk_metrics(
             "volatility": float("nan"),
         }
 
-    cumulative_return = float(equity.iloc[-1] / equity.iloc[0] - 1.0)
+    start = float(equity.iloc[0])
+    end = float(equity.iloc[-1])
+
+    if start == 0.0:
+        cumulative_return = float("nan")
+    else:
+        cumulative_return = end / start - 1.0
+
     drawdowns = _compute_drawdowns(equity)
     max_drawdown = float(drawdowns.min())
 
@@ -164,9 +162,9 @@ def _compute_risk_metrics(
     }
 
 
-# ===============================================================
-# Main Backtest Runner
-# ===============================================================
+# =====================================================================
+# Main runner
+# =====================================================================
 
 
 def run_backtest(
@@ -183,53 +181,62 @@ def run_backtest(
 
     LOGGER.info("Starting backtest with %d bars.", len(timestamps))
 
-    equity_values: list[float] = []
-    equity_index: list[pd.Timestamp] = []
+    equity_values: List[float] = []
+    equity_index: List[pd.Timestamp] = []
     last_prices: Optional[pd.DataFrame] = None
 
-    # ----------------------------------------------------------
-    # Initialize the RunContext
-    # ----------------------------------------------------------
+    # Position snapshots per bar
+    positions_records: List[Dict[str, Any]] = []
+
     ctx = RunContext(
         timestamp=pd.Timestamp(timestamps[0]),
         bar_index=0,
         execution_context=execution_context,
         config=config,
         extra={},
-        market_data=market_data,  # <-- FIX: make data accessible in on_start()
+        market_data=market_data,
         current_bar=None,
     )
 
-    # Strategy startup
     strategy.on_start(ctx)
 
-    # ----------------------------------------------------------
-    # Main iteration
-    # ----------------------------------------------------------
     for i, ts in enumerate(timestamps):
         ts = pd.Timestamp(ts)
         bar_data = _slice_bar(market_data, ts)
         last_prices = bar_data.copy()
 
-        # Update context
         ctx.timestamp = ts
         ctx.bar_index = i
-        ctx.current_bar = bar_data  # <-- FIX: current bar provided each step
+        ctx.current_bar = bar_data
 
-        # Strategy handles the bar
         strategy.on_bar(ctx, bar_data)
 
-        # Compute valuation
+        # Portfolio valuation
         prices_for_ledger = _extract_prices_for_ledger(bar_data, price_col=price_col)
         equity = execution_context.ledger.portfolio_value(prices_for_ledger)
 
         equity_values.append(float(equity))
         equity_index.append(ts)
 
-    # Finalize strategy
+        # Snapshot cumulative positions
+        ledger = execution_context.ledger
+        try:
+            position_book = ledger.position_book.positions  # PositionBook.positions
+            for sym, pos in position_book.items():
+                positions_records.append(
+                    {
+                        "timestamp": ts,
+                        "symbol": sym,
+                        "quantity": pos.quantity,
+                        "avg_price": pos.avg_price,
+                    }
+                )
+        except AttributeError:
+            # Fallback for simpler ledgers without PositionBook
+            pass
+
     strategy.on_end(ctx)
 
-    # Build results
     equity_series = pd.Series(
         equity_values,
         index=pd.DatetimeIndex(equity_index, name="timestamp"),
@@ -242,12 +249,15 @@ def run_backtest(
     if last_prices is None:
         last_prices = pd.DataFrame()
 
+    positions_ts = pd.DataFrame(positions_records) if positions_records else None
+
     result = BacktestResult(
         equity_curve=equity_series,
         drawdowns=drawdowns,
         risk_metrics=risk_metrics,
         prices_last=last_prices,
         config=config,
+        positions_ts=positions_ts,
     )
 
     LOGGER.info(

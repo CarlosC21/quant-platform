@@ -1,6 +1,6 @@
 # Test
 
-from src.quant_platform import __version__
+from quant_platform import __version__
 
 
 def test_version():

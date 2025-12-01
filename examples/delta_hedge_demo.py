@@ -1,7 +1,7 @@
 # examples/delta_hedge_demo.py
 import numpy as np
-from src.quant_platform.options.models.black_scholes import delta_hedge_simulator
-from src.quant_platform.options.models.local_vol import LocalVolSurface, LocalVolOption
+from quant_platform.options.models.black_scholes import delta_hedge_simulator
+from quant_platform.options.models.local_vol import LocalVolSurface, LocalVolOption
 
 np.random.seed(42)
 

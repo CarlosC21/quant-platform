@@ -1,0 +1,31 @@
+{
+  "name": "stat_arb_exec_demo",
+  "strategy": {
+    "params": {
+      "name": "stat_arb_exec",
+      "y_symbol": "AAA",
+      "x_symbol": "BBB",
+      "vol_target": 0.1,
+      "dollar_neutral": true
+    }
+  },
+  "execution": {
+    "latency_seconds": 0.0,
+    "slippage_bps": null,
+    "cost_bps": null,
+    "slippage_model": "default",
+    "cost_model": "default"
+  },
+  "seeds": {
+    "python": null,
+    "numpy": null,
+    "global_seed": 123
+  },
+  "data_source": "synthetic_pair.csv",
+  "save": {
+    "directory": null,
+    "save_equity_curve": true,
+    "save_positions": true,
+    "save_trades": true
+  }
+}

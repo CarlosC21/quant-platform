@@ -1,8 +1,8 @@
 # tests/options/test_option_models.py
 import numpy as np
-from src.quant_platform.options.models.black_scholes_option import BlackScholesOption
-from src.quant_platform.options.models.american_option import AmericanOption
-from src.quant_platform.options.models.delta_hedge import delta_hedge_simulator
+from quant_platform.options.models.black_scholes_option import BlackScholesOption
+from quant_platform.options.models.american_option import AmericanOption
+from quant_platform.options.models.delta_hedge import delta_hedge_simulator
 
 
 def test_delta_hedge_pnl_call():

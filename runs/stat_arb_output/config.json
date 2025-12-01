@@ -1,0 +1,32 @@
+{
+  "name": "stat_arb_run",
+  "strategy": {
+    "params": {
+      "dollar_neutral": true,
+      "name": "stat_arb_exec",
+      "vol_target": 0.1,
+      "x_symbol": "LOW",
+      "y_symbol": "HD"
+    }
+  },
+  "execution": {
+    "latency_seconds": 0.0,
+    "slippage_bps": 0.0,
+    "cost_bps": 0.0,
+    "slippage_model": null,
+    "cost_model": null
+  },
+  "seeds": {
+    "python": null,
+    "numpy": null,
+    "global_seed": null
+  },
+  "data_source": "/tmp/tmp41pw3zdx.csv",
+  "initial_cash": 100000.0,
+  "save": {
+    "directory": "runs/stat_arb_output",
+    "save_equity_curve": true,
+    "save_positions": true,
+    "save_trades": true
+  }
+}

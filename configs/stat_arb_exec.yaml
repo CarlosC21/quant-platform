@@ -1,19 +1,24 @@
-name: stat_arb_exec_demo
+name: stat_arb_test
 
 strategy:
   params:
     name: stat_arb_exec
-    y_symbol: AAA
-    x_symbol: BBB
+    y_symbol: LOW
+    x_symbol: HD
     vol_target: 0.10
     dollar_neutral: true
 
-data_source: synthetic_pair.csv
-
-seeds:
-  global_seed: 123
+data_source: REPLACED_BY_UI
 
 execution:
   latency_seconds: 0.0
-  slippage_model: default
-  cost_model: default
+  slippage_bps: 0.0
+  cost_bps: 0.0
+
+initial_cash: 100000
+
+save:
+  save_equity_curve: true
+  save_positions: true
+  save_trades: true
+  directory: runs/test_stat_arb

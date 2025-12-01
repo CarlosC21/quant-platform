@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.quant_platform.fixed_income.yield_curve import (
+from quant_platform.fixed_income.yield_curve import (
     convexity,
     discount_factor,
     forward_rate,

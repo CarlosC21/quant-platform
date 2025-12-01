@@ -13,93 +13,69 @@ from quant_platform.execution.routing import VenueRouter
 
 class ExecutionContext(BaseModel):
     """
-    High-level trading context bundling:
-
-        • ExecutionEngine  (latency + routing + simulator)
-        • Brokers (one or many)
-        • TradeLedger (persistent ledger used across venues)
-        • PositionBook  (merged view across brokers)
-
-    This is the primary interface used by strategies, backtests,
-    the portfolio layer, and Week 12 dashboards.
+    High-level trading context bundling execution engine + ledger + routing.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
+    # NEW: starting capital
+    initial_cash: float = 100_000.0
+
+    # Core components
     engine: ExecutionEngine = Field(default_factory=ExecutionEngine)
     ledger: TradeLedger = Field(default_factory=TradeLedger)
 
-    # ---------------------------------------------------------------
-    # Optional multi-venue setup
-    # ---------------------------------------------------------------
+    # Optional router / multi-venue
     router: VenueRouter | None = None
     venue_brokers: Dict[str, Broker] = Field(default_factory=dict)
 
     # ---------------------------------------------------------------
-    # Initialization logic
+    # Initialization
     # ---------------------------------------------------------------
     def model_post_init(self, __context):
-        """
-        After initialization, wire the ledger into:
+        # Inject initial cash
+        if hasattr(self.ledger, "position_book"):
+            self.ledger.position_book.cash = float(self.initial_cash)
 
-            • default engine broker
-            • any venue-specific brokers (routing)
-        """
-
-        # Default engine broker
+        # Default engine broker uses ledger
         self.engine.broker.ledger = self.ledger
 
-        # Routing brokers (if router present)
+        # Routing/brokers
         if self.router is not None:
             for venue_id, cfg in self.router.venues.items():
-                # Attach ledger to each venue broker
                 cfg.broker.ledger = self.ledger
                 self.venue_brokers[venue_id] = cfg.broker
-
-            # Tell the engine to use the router
             self.engine.router = self.router
 
     # ---------------------------------------------------------------
-    # EXECUTE ORDER
+    # EXECUTE
     # ---------------------------------------------------------------
     def execute(
         self,
         order: Order,
         snapshot: MarketDataSnapshot | Dict[str, MarketDataSnapshot],
     ) -> Tuple[List[EngineEvent], object]:
-        """
-        Execute an order across either:
-
-            • Single venue (no routing), snapshot = MarketDataSnapshot
-            • Multi-venue (routing enabled), snapshot = {venue_id: snapshot}
-
-        Returns:
-            events      = list of EngineEvent
-            position_book = merged positions from ledger
-        """
-
-        # Ensure engine always uses latest ledger reference
+        # Always sync ledger
         self.engine.broker.ledger = self.ledger
 
-        # Router case: ensure each venue broker uses the same ledger
+        # Multi-venue snapshot dict
         if isinstance(snapshot, dict) and self.router:
             for venue_id, cfg in self.router.venues.items():
                 cfg.broker.ledger = self.ledger
 
         events = list(self.engine.process_order(order, snapshot))
 
-        # Return high-level state (positions, realized PnL, etc.)
+        # Return events + merged positions
         return events, self.ledger.position_book
 
     # ---------------------------------------------------------------
-    # Convenience Accessors
+    # ACCESSORS
     # ---------------------------------------------------------------
     def positions(self):
-        """Merged view of positions across all venues (ledger is authoritative)."""
         return self.ledger.position_book
 
     def realized_pnl(self) -> float:
-        return self.ledger.realized_pnl_total()
+        return self.ledger.total_realized_pnl
 
     def last_report(self, order_id: str):
         return self.ledger.last_report(order_id)
@@ -108,4 +84,9 @@ class ExecutionContext(BaseModel):
         return self.ledger.last_fills(order_id)
 
     def position(self, symbol: str):
-        return self.ledger.position_book.get(symbol)
+        return self.ledger.position_book.positions.get(symbol)
+
+
+# DEBUG: confirm path + method presence
+print("LOADED ExecutionContext FROM:", __file__)
+print("ExecutionContext has execute:", hasattr(ExecutionContext, "execute"))

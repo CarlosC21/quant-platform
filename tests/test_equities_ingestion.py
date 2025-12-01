@@ -4,9 +4,9 @@ from datetime import date
 import polars as pl
 import pytest
 
-from src.quant_platform.data.ingestion.equities import EquitiesIngestor
-from src.quant_platform.data.schemas.equities import EquityPriceSchema
-from src.quant_platform.data.validation.validators import (
+from quant_platform.data.ingestion.equities import EquitiesIngestor
+from quant_platform.data.schemas.equities import EquityPriceSchema
+from quant_platform.data.validation.validators import (
     ValidationError,
     validate_equity_records,
 )

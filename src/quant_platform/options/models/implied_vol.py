@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.optimize import brentq
 
-from src.quant_platform.options.greeks.greeks import bs_vega
-from src.quant_platform.options.models.black_scholes import bs_price
+from quant_platform.options.greeks.greeks import bs_vega
+from quant_platform.options.models.black_scholes import bs_price
 
 
 def implied_vol(price, S, K, T, r, option_type="call", tol=1e-6, max_iter=100):

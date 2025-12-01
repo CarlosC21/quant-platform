@@ -15,9 +15,6 @@ class StatArbSignal(BaseModel):
         'long'  -> long spread (long Y, short X)
         'short' -> short spread (short Y, long X)
         'flat'  -> no spread position
-
-    tradable:
-        False if regime filters block trading, even if z-score suggests entry.
     """
 
     timestamp: datetime
@@ -27,31 +24,73 @@ class StatArbSignal(BaseModel):
     zscore: float = Field(..., description="Point-in-time z-score of the spread.")
     spread: float = Field(..., description="Point-in-time spread value.")
 
+    # NEW: we attach hedge_ratio directly into the signal object
+    hedge_ratio: float = Field(1.0, description="Hedge ratio (beta): Y = beta * X.")
+
     side: Literal["long", "short", "flat"]
     z_entry: float = Field(..., gt=0.0, description="Entry threshold |z| >= z_entry.")
     z_exit: float = Field(
         ..., gt=0.0, description="Exit/flatten threshold |z| <= z_exit."
     )
 
-    regime: Optional[int] = Field(
-        default=None,
-        description="Optional regime label from HMM / RegimeStore.",
-    )
+    regime: Optional[int] = Field(default=None, description="Optional regime label.")
+
     tradable: bool = Field(
-        True,
-        description="If False, trading is blocked (e.g., bad regime).",
+        True, description="If False, trading is blocked (e.g., regime)."
     )
 
     reason: str = Field(
-        "",
-        description="Short reason code: 'entry_long', 'exit_flat', 'regime_block', 'not_cointegrated', etc.",
+        "", description="Reason code: entry_long, exit_flat, regime_block, etc."
     )
+
     meta: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Arbitrary extra diagnostics.",
+        default_factory=dict, description="Arbitrary diagnostics."
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # =====================================================================
+    # NEW: Convert signal + target sizes → simple executable order dicts
+    # =====================================================================
+    def to_orders(
+        self,
+        ts,
+        y_symbol: str,
+        x_symbol: str,
+        target_y: float,
+        target_x: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        Convert target position sizes into execution-ready order dicts.
+        These order dicts match ExecutionContext.execute(order, snapshot).
+
+        The ExecutionContext in your repo accepts:
+            - dict with { "timestamp": ts, "symbol": ..., "quantity": ..., "type": "market" }
+        """
+
+        orders = []
+
+        # --- Order for Y ---
+        orders.append(
+            {
+                "timestamp": ts,
+                "symbol": y_symbol,
+                "quantity": float(target_y),
+                "type": "market",
+            }
+        )
+
+        # --- Order for X ---
+        orders.append(
+            {
+                "timestamp": ts,
+                "symbol": x_symbol,
+                "quantity": float(target_x),
+                "type": "market",
+            }
+        )
+
+        return orders
 
 
 class StatArbPairConfig(BaseModel):
@@ -76,16 +115,12 @@ class StatArbPairConfig(BaseModel):
     z_exit: float = Field(
         0.5,
         gt=0.0,
-        description="Exit/flatten threshold: |z| <= z_exit.",
+        description="Exit threshold: |z| <= z_exit.",
     )
 
-    use_kalman: bool = Field(
-        False,
-        description="If True, use Kalman dynamic hedge; otherwise static beta from Engle–Granger.",
-    )
+    use_kalman: bool = Field(False, description="Use Kalman dynamic hedge ratio.")
     fail_if_not_coint: bool = Field(
-        False,
-        description="If True, raise if pair is not cointegrated; otherwise return flat, non-tradable signals.",
+        False, description="Raise if Engle–Granger does not confirm cointegration."
     )
 
 
@@ -96,13 +131,15 @@ class StatArbPipelineResult(BaseModel):
 
     pair_config: StatArbPairConfig
     signals: List[StatArbSignal]
+
     cointegrated: bool = Field(
         ...,
         description="True if Engle–Granger found cointegration.",
     )
+
     meta: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Additional diagnostics (e.g. EG stats, OU params).",
+        description="Pipeline diagnostics (EG stats, OU params, etc.).",
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

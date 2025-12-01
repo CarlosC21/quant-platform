@@ -16,30 +16,28 @@ class RandomSeedConfig(BaseModel):
     python: Optional[int] = None
     numpy: Optional[int] = None
     global_seed: Optional[int] = Field(
-        default=None, description="If set, overrides python + numpy seeds."
+        default=None,
+        description="If set, overrides python + numpy seeds.",
     )
 
 
 # ============================================================
-# Execution Settings (supports Week 11 engine)
+# Execution Settings (Week 11 engine compatible)
 # ============================================================
 
 
 class ExecutionSettings(BaseModel):
     """
-    Execution controls for backtest.
-    These map cleanly to ExecutionContext + cost/slippage models.
+    Execution controls for the backtest.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     latency_seconds: float = 0.0
-
-    # Added for compatibility with Week 11/12 workflow
     slippage_bps: Optional[float] = None
     cost_bps: Optional[float] = None
 
-    # Optional advanced models
+    # for compatibility with older files
     slippage_model: Optional[str] = None
     cost_model: Optional[str] = None
 
@@ -50,17 +48,17 @@ class ExecutionSettings(BaseModel):
 
 
 class StrategySettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
 # ============================================================
-# Save Settings (NEW)
+# Save Settings
 # ============================================================
 
 
 class SaveSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     directory: Optional[str] = None
     save_equity_curve: bool = True
@@ -74,14 +72,24 @@ class SaveSettings(BaseModel):
 
 
 class BacktestConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    """
+    Global backtest configuration.
+    """
+
+    # 🔥 ALLOW extra fields so nothing breaks
+    model_config = ConfigDict(extra="allow")
 
     name: str = "default_run"
+
     strategy: StrategySettings = Field(default_factory=StrategySettings)
     execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
     seeds: RandomSeedConfig = Field(default_factory=RandomSeedConfig)
 
     data_source: Optional[str] = None
 
-    # NEW
+    # 🔥 Fully supported top-level starting cash
+    initial_cash: float = Field(
+        default=100_000.0, description="Starting portfolio cash."
+    )
+
     save: SaveSettings = Field(default_factory=SaveSettings)

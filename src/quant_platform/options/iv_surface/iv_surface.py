@@ -12,7 +12,7 @@ try:
 except Exception:
     Akima1DInterpolator = None
 
-from src.quant_platform.options.greeks.greeks import GreeksCalculator
+from quant_platform.options.greeks.greeks import GreeksCalculator
 
 
 @dataclass

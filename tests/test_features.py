@@ -1,7 +1,7 @@
 # tests/test_features.py
 import polars as pl
 
-from src.quant_platform.data.feature_store.features import (
+from quant_platform.data.feature_store.features import (
     compute_equity_features,
     compute_macro_features,
 )

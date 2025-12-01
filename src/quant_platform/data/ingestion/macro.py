@@ -4,11 +4,11 @@ from typing import List
 
 import polars as pl
 
-from src.quant_platform.data.ingestion.base import BaseIngestor
-from src.quant_platform.data.schemas.macro import MacroIndicatorSchema
+from quant_platform.data.ingestion.base import BaseIngestor
+from quant_platform.data.schemas.macro import MacroIndicatorSchema
 
 # Optional: reuse or create validators
-from src.quant_platform.data.validation.validators import ValidationError
+from quant_platform.data.validation.validators import ValidationError
 
 
 class MacroIngestor(BaseIngestor):

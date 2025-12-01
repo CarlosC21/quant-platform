@@ -4,9 +4,9 @@ from typing import List
 
 import polars as pl
 
-from src.quant_platform.data.ingestion.base import BaseIngestor
-from src.quant_platform.data.schemas.equities import EquityPriceSchema
-from src.quant_platform.data.validation.validators import validate_equity_records
+from quant_platform.data.ingestion.base import BaseIngestor
+from quant_platform.data.schemas.equities import EquityPriceSchema
+from quant_platform.data.validation.validators import validate_equity_records
 
 
 class EquitiesIngestor(BaseIngestor):

@@ -19,19 +19,31 @@ def _target_side_from_zscore(
 ) -> str:
     """
     Stateless mapping from z-score to target side.
-
-    Rules:
-      - |z| >= z_entry:
-            z > 0  -> 'short' (short spread)
-            z < 0  -> 'long'
-      - |z| <= z_exit: 'flat'
-      - else: 'flat' (no hysteresis here; pipeline can add stateful logic).
     """
     if abs(z) >= z_entry:
         return "short" if z > 0 else "long"
     if abs(z) <= z_exit:
         return "flat"
     return "flat"
+
+
+def _resolve_beta(z: ZScoreResult, i: int) -> float:
+    """
+    Resolve hedge ratio for timestamp i.
+    Supports:
+        - z.beta      (static beta)
+        - z.beta_ts   (array-like dynamic beta)
+    """
+    # dynamic beta_ts takes precedence
+    if hasattr(z, "beta_ts") and z.beta_ts is not None:
+        return float(z.beta_ts[i])
+
+    # fallback: static beta
+    if hasattr(z, "beta") and z.beta is not None:
+        return float(z.beta)
+
+    # final fallback
+    return 1.0
 
 
 def build_signals_from_zscores(
@@ -43,32 +55,11 @@ def build_signals_from_zscores(
 ) -> List[StatArbSignal]:
     """
     Build StatArbSignal list from z-scores and regime information.
-
-    Parameters
-    ----------
-    zscore_result : ZScoreResult
-        Z-scores and spreads for a given pair.
-    z_entry : float
-        Entry threshold |z| >= z_entry.
-    z_exit : float
-        Exit/flatten threshold |z| <= z_exit.
-    regime_df :
-        Regime DataFrame with 'date', 'regime_<name>', 'prob_<name>_<state>'.
-        Typically obtained via RegimeFeatureStore.load_regime(..., as_pandas=True).
-    regime_config : RegimeFilterConfig
-        Configuration of allowed regimes and probability threshold.
-
-    Returns
-    -------
-    signals : List[StatArbSignal]
-        One signal per timestamp.
     """
     if z_entry <= 0.0 or z_exit <= 0.0:
         raise ValueError("z_entry and z_exit must be positive.")
     if z_exit >= z_entry:
-        # Usually z_exit < z_entry to provide hysteresis cushion.
-        # We do not enforce strict inequality, but warn via error for now.
-        raise ValueError("z_exit should be < z_entry for sensible trading logic.")
+        raise ValueError("z_exit should be < z_entry.")
 
     tradable_mask = build_regime_mask(zscore_result, regime_df, regime_config)
 
@@ -80,18 +71,16 @@ def build_signals_from_zscores(
 
     for i in range(len(timestamps)):
         ts = timestamps[i]
-        # convert numpy.datetime64 → python datetime
         ts_py = pd.Timestamp(ts).to_pydatetime()
 
         z = float(zscores[i])
         s = float(spread[i])
         tradable = bool(tradable_mask[i])
 
-        # Determine regime label if present
-        regime_label = None
-        # Regime label alignment logic can live in pipeline; for now we
-        # leave it as None to avoid double work. It can be injected later.
+        # hedge ratio for this timestamp
+        beta_i = _resolve_beta(zscore_result, i)
 
+        # Determine side + reason
         if not tradable:
             side = "flat"
             reason = "regime_block"
@@ -110,10 +99,11 @@ def build_signals_from_zscores(
             symbol_x=zscore_result.symbol_x,
             zscore=z,
             spread=s,
-            side=side,  # type: ignore[arg-type]
+            hedge_ratio=beta_i,  # << 🔥 KEY FIX
+            side=side,
             z_entry=z_entry,
             z_exit=z_exit,
-            regime=regime_label,
+            regime=None,
             tradable=tradable,
             reason=reason,
             meta={},

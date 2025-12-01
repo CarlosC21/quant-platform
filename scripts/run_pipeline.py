@@ -1,7 +1,7 @@
 # scripts/run_pipeline.py
 import asyncio
 
-from src.quant_platform.data.ingestion.pipelines import DataPipeline
+from quant_platform.data.ingestion.pipelines import DataPipeline
 
 
 async def main():

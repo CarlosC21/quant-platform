@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from src.quant_platform.fixed_income.yield_curve import NSParams, fit_ns, ns_yield
+from quant_platform.fixed_income.yield_curve import NSParams, fit_ns, ns_yield
 
 
 def test_ns_fit_recovery():

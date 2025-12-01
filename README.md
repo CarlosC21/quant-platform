@@ -1,119 +1,243 @@
-# Quant Platform
+Quant Research & Trading Platform
 
-A modular, production-oriented multi-asset quantitative research & trading system.
+A modular, execution-aware, multi-layer quantitative research framework.
 
-This platform is built for **interview-grade rigor**, **mathematical correctness**, and **clean modular architecture**, covering:
+Overview
 
-- Equities, macro, options, and fixed-income data ingestion  
-- Validation via Pydantic v2 domain schemas  
-- Feature engineering for equities & macro  
-- Option-pricing models (Black-Scholes, Greeks, IV, surfaces)  
-- Yield curve bootstrapping (NS/Svensson), fixed-income ingestion (FRED)  
-- Feature Store (in-memory, extendable)  
-- End-to-end pipelines combining ingestion → validation → features → store  
-- Full unit test coverage
+This project is a full-stack quantitative trading research platform modeled after hedge-fund and quant-prop architectures.
+It provides a complete pipeline:
 
-This repository is the foundation for a complete multi-asset quant research, modeling, and trading environment.
+data ingestion → feature engineering → alpha signals → execution-aware backtesting → analytics & reporting
 
----
+all inside a clean Python + Streamlit interface.
 
-## 📦 Installation
+The platform enables users to:
 
-Clone the repo:
+Upload their own market data
 
-```bash
-git clone https://github.com/CarlosC21/quant-platform.git
-cd quant-platform
+Configure strategies via YAML / JSON
 
-python -m venv .venv
-source .venv/bin/activate   # macOS/Linux
-.venv\Scripts\activate      # Windows
+Run execution-aware backtests
 
-poetry install
+Analyze equity curves, drawdowns, trades, and positions
 
-## Quick Usage Example
+Extend strategies, models, and execution engines
 
-from quant_platform.data.ingestion.pipelines import DataPipeline
+Although the included example uses a statistical arbitrage (pair trading) workflow, the architecture is generic and designed for multi-asset expansion.
 
-pipeline = DataPipeline(
-    equities_path="data/sp500_sample.csv",
-    macro_path="data/macro_sample.csv"
-)
+Architecture
 
-feature_store = await pipeline.run()
-print(feature_store.list_features())
+The platform follows a production-grade buy-side quant architecture.
 
-This demonstrates:
+1. Data Layer
 
-reading raw data
+CSV / Parquet ingestion
 
-validating via schemas
+MultiIndex formatting (timestamp, symbol)
 
-computing features
+Input schema validation
 
-writing to the FeatureStore
+Extensible to equities, futures, FX, crypto, and macro datasets
 
-Options Example 
+2. Strategy Layer
 
-from quant_platform.options.data_ingestion import ingest_option_chain
-import polars as pl
+Modular Strategy base class
 
-df_raw = pl.read_csv("data/aapl_options.csv")
-df = ingest_option_chain(df_raw)
-print(df.head())
+Example: StatArbExecutionStrategy
 
-Fixed Income Example (FRED API)
+Clean pipeline for spreads, signals, regime filters, hedge ratios
 
-from quant_platform.fixed_income.ingestion.fred import FredYieldCurveIngestor
+Volatility targeting & adaptive sizing
 
-ing = FredYieldCurveIngestor(api_key="YOUR_FRED_KEY")
-df = await ing.fetch_treasury_yields()
-print(df)
+3. Execution Layer
 
-Run Tests 
+Institutional-style ExecutionContext
 
-pytest -v
-pytest --cov=src/quant_platform --cov-report=term-missing
+Market & limit order simulation
 
-Project Structure 
+Latency modeling
 
-src/
-└─ quant_platform/
-   ├─ data/
-   │  ├─ feature_store/
-   │  │  ├─ store.py
-   │  │  └─ features.py
-   │  ├─ ingestion/
-   │  │  ├─ equities.py
-   │  │  ├─ macro.py
-   │  │  ├─ options/
-   │  │  ├─ fixed_income/
-   │  │  ├─ pipelines.py
-   │  │  └─ base.py
-   │  ├─ schemas/
-   │  └─ validation/
-   ├─ options/
-   │  ├─ greeks.py
-   │  ├─ black_scholes.py
-   │  ├─ implied_vol.py
-   │  ├─ iv_surface.py
-   │  └─ data_ingestion.py
-   ├─ fixed_income/
-   │  ├─ fred_ingestion.py
-   │  ├─ yield_curve.py
-   │  └─ schemas.py
-   └─ __init__.py
+Slippage & transaction-cost models
 
-tests/
+Partial-fill & order-queue logic
 
-🧠 Notes
+Broker ledger + trade logs
 
-Weeks 1–2: repo structure, ingestion framework, feature store, tests → complete
+Fully pluggable execution models
 
-Options layer is functional: BS pricing, Greeks, IV solver, surface builder
+4. Portfolio Layer
 
-Fixed-income layer (FRED + NS/Svensson bootstrapping) under implementation
+Volatility-targeted position sizing
 
-High-performance data handling via Polars
+Dollar-neutral or directional
 
-All ingestion is async-compatible
+Hedge-ratio integration
+
+Multi-symbol slicing helpers
+
+5. Backtesting Runner
+
+Orchestrates strategy, data, and execution
+
+Respects random seeds, slippage, cost curves
+
+Produces:
+
+Equity curve
+
+Drawdowns
+
+Trades
+
+Positions
+
+Risk metrics (JSON)
+
+6. UI Layer (Streamlit)
+
+Upload market data
+
+Upload or auto-generate config files
+
+Run full backtest
+
+Interactive charts (PnL, DD, risk metrics)
+
+Positions & trade introspection
+
+Features
+✔ Execution-Aware Backtesting
+
+Simulates real market microstructure:
+
+Latency
+
+Slippage models
+
+Transaction costs
+
+Execution queue
+
+Market order routing
+
+Partial fills
+
+✔ Statistical Arbitrage Pipeline
+
+Includes:
+
+Engle–Granger cointegration
+
+OU spread modeling
+
+Regime filtering (HMM-compatible)
+
+Z-score entry/exit logic
+
+Volatility-targeted sizing
+
+✔ Interactive Streamlit Interface
+
+Data upload
+
+Config upload or default injection
+
+Auto symbol detection
+
+Equity curve, drawdowns, risk metrics
+
+Positions & trades visualization
+
+✔ YAML / JSON Config System
+
+Control everything:
+
+Data source
+
+Strategy parameters
+
+Execution models
+
+Saving behavior
+
+Random seeds
+
+How To Use
+1. Launch the UI
+streamlit run src/quant_platform/ui/app.py
+
+2. Upload Your Market Data (CSV)
+
+Format:
+
+timestamp,symbol,close
+2025-01-02,LOW,246.98
+2025-01-02,HD,388.46
+...
+
+3. Upload Config or Use Default
+
+You may:
+
+Upload your own config.yaml, or
+
+Click Use Default Stat-Arb Config, which injects:
+
+Data source
+
+Symbols
+
+Strategy parameters
+
+Execution settings
+
+4. Run Backtest
+
+Click Run Backtest → The following appear:
+
+Equity curve
+
+Drawdowns
+
+Risk metrics
+
+Positions over time
+
+Project Structure
+quant_platform/
+    data/
+    trading/
+        stat_arb/
+            pipeline/
+            spreads/
+            schemas.py
+    execution/
+        context.py
+        models.py
+    portfolio/
+        position_sizing.py
+    runner/
+        core.py
+        run.py
+        config/
+            models.py
+    ui/
+        app.py
+
+Future Roadmap
+
+Multi-pair stat-arb portfolio
+
+Automatic pair selection & cointegration scanning
+
+Multi-strategy framework
+
+Expanded risk engine (factor models, correlation regimes)
+
+Local volatility & advanced derivatives pricing
+
+Cross-sectional ML alpha models
+
+Execution optimizers (TWAP / VWAP / POV / impact models)
+
+Multi-asset support (futures, FX, crypto)

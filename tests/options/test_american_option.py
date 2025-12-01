@@ -1,7 +1,7 @@
 # tests/options/test_american_option.py
 import pytest
 import numpy as np
-from src.quant_platform.options.models.american_option import AmericanOption
+from quant_platform.options.models.american_option import AmericanOption
 
 
 @pytest.mark.parametrize(

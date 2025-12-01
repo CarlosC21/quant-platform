@@ -1,0 +1,32 @@
+{
+  "name": "stat_arb_exec_demo",
+  "strategy": {
+    "params": {
+      "dollar_neutral": true,
+      "name": "stat_arb_exec",
+      "vol_target": 0.1,
+      "x_symbol": "TSLA",
+      "y_symbol": "AAPL"
+    }
+  },
+  "execution": {
+    "latency_seconds": 0.0,
+    "slippage_bps": null,
+    "cost_bps": null,
+    "slippage_model": "default",
+    "cost_model": "default"
+  },
+  "seeds": {
+    "python": null,
+    "numpy": null,
+    "global_seed": 123
+  },
+  "data_source": "/tmp/tmppmbw9ta3.csv",
+  "initial_cash": 100000.0,
+  "save": {
+    "directory": "runs/stat_arb_demo",
+    "save_equity_curve": true,
+    "save_positions": true,
+    "save_trades": true
+  }
+}

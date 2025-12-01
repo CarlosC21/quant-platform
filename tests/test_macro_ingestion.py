@@ -4,9 +4,9 @@ from datetime import date
 import polars as pl
 import pytest
 
-from src.quant_platform.data.ingestion.macro import MacroIngestor
-from src.quant_platform.data.schemas.macro import MacroIndicatorSchema
-from src.quant_platform.data.validation.validators import ValidationError
+from quant_platform.data.ingestion.macro import MacroIngestor
+from quant_platform.data.schemas.macro import MacroIndicatorSchema
+from quant_platform.data.validation.validators import ValidationError
 
 sample_macro = pl.DataFrame(
     {

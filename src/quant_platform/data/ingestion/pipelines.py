@@ -1,11 +1,11 @@
 # src/quant_platform/data/ingestion/pipelines.py
 import logging
 
-from src.quant_platform.data.feature_store.features import (
+from quant_platform.data.feature_store.features import (
     compute_equity_features,
     compute_macro_features,
 )
-from src.quant_platform.data.feature_store.store import FeatureStore
+from quant_platform.data.feature_store.store import FeatureStore
 
 from .equities import EquitiesIngestor
 from .macro import MacroIngestor

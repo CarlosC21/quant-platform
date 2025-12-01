@@ -1,7 +1,7 @@
 from typing import List
 
-from src.quant_platform.data.validation.validators import ValidationError
-from src.quant_platform.options.schemas import OptionQuoteSchema
+from quant_platform.data.validation.validators import ValidationError
+from quant_platform.options.schemas import OptionQuoteSchema
 
 
 def validate_option_records(records: List[OptionQuoteSchema]):

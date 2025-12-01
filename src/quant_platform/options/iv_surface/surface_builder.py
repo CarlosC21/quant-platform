@@ -7,7 +7,7 @@ from typing import Dict, Optional
 import numpy as np
 import polars as pl
 
-from src.quant_platform.options.greeks.greeks import solve_iv
+from quant_platform.options.greeks.greeks import solve_iv
 
 
 def _as_date(v) -> Optional[date]:

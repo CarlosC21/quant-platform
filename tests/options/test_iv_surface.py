@@ -3,8 +3,8 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 
-from src.quant_platform.options.iv_surface.iv_surface import IVSurface
-from src.quant_platform.options.iv_surface.surface_builder import build_iv_surface_table
+from quant_platform.options.iv_surface.iv_surface import IVSurface
+from quant_platform.options.iv_surface.surface_builder import build_iv_surface_table
 
 
 # --------------------------
