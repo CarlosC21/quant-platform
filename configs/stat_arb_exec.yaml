@@ -1,0 +1,19 @@
+name: stat_arb_exec_demo
+
+strategy:
+  params:
+    name: stat_arb_exec
+    y_symbol: AAA
+    x_symbol: BBB
+    vol_target: 0.10
+    dollar_neutral: true
+
+data_source: synthetic_pair.csv
+
+seeds:
+  global_seed: 123
+
+execution:
+  latency_seconds: 0.0
+  slippage_model: default
+  cost_model: default

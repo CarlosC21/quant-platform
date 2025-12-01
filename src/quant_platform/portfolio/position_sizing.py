@@ -134,3 +134,67 @@ def size_stat_arb_position(
         position = sign * leverage_limit
 
     return float(position)
+
+
+# =====================================================================
+# Additional Week 12 Stat-Arb Sizing Helper
+# =====================================================================
+
+
+def stat_arb_position_size(
+    zscore: float,
+    vol_target: float,
+    hedge_ratio: float,
+    dollar_neutral: bool,
+    price_y: float,
+    price_x: float,
+    max_leverage: float = 5.0,
+) -> tuple[float, float]:
+    """
+    Convert a stat-arb z-score into target SHARE positions for (Y, X).
+
+    This is a simplified interface specifically for:
+        quant_platform.examples.stat_arb_backtest_with_execution
+
+    Parameters
+    ----------
+    zscore : float
+        OU-based z-score.
+    vol_target : float
+        Annualized portfolio volatility target (e.g. 0.10).
+    hedge_ratio : float
+        Beta hedge ratio between Y and X.
+    dollar_neutral : bool
+        Whether to enforce dollar-neutral positions.
+    price_y : float
+        Current price of Y asset.
+    price_x : float
+        Current price of X asset.
+    max_leverage : float
+        Maximum notional leverage applied to either leg.
+
+    Returns
+    -------
+    shares_y : float
+    shares_x : float
+    """
+
+    # Trading signal direction: mean-reversion (negative sign)
+    # Spread > mean ⇒ zscore > 0 ⇒ Short Y, Long X
+    raw_signal = -zscore
+
+    # Basic notional scaling
+    notional_y = raw_signal * vol_target * 10_000
+
+    # Dollar-neutral notional X
+    notional_x = -hedge_ratio * notional_y if dollar_neutral else 0.0
+
+    # Leverage limits applied to notional exposure
+    notional_y = max(min(notional_y, max_leverage * price_y), -max_leverage * price_y)
+    notional_x = max(min(notional_x, max_leverage * price_x), -max_leverage * price_x)
+
+    # Convert notional exposure → shares
+    shares_y = notional_y / price_y
+    shares_x = notional_x / price_x
+
+    return float(shares_y), float(shares_x)

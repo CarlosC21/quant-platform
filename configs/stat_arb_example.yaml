@@ -1,0 +1,13 @@
+name: "stat_arb_demo"
+
+strategy:
+  params:
+    name: "stat_arb_exec"
+    y_symbol: "AAA"
+    x_symbol: "BBB"
+    vol_target: 0.1
+
+data_source: "synthetic_pair.csv"
+
+seeds:
+  global_seed: 123
