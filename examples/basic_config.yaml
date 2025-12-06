@@ -1,0 +1,14 @@
+name: demo_run
+
+data_source: examples/data/small_md.csv   # <- You must create this file too
+
+strategy:
+  params:
+    name: always_flat
+
+initial_cash: 100000
+
+save:
+  directory: runs/demo
+  save_equity_curve: true
+  save_positions: true

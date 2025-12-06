@@ -1,0 +1,18 @@
+{
+  "initial_cash": 100000,
+  "data_source": "examples/data/small_md.csv",
+  "strategy": {
+    "params": {
+      "name": "stat_arb_exec",
+      "lookback": 20,
+      "entry_z": 1.0,
+      "exit_z": 0.2,
+      "size": 10
+    }
+  },
+  "save": {
+    "directory": "runs/stat_arb",
+    "save_equity_curve": true,
+    "save_positions": true
+  }
+}

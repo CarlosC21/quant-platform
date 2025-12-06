@@ -1,0 +1,14 @@
+{
+  "initial_cash": 100000,
+  "data_source": "examples/data/small_md.csv",
+  "strategy": {
+    "params": {
+      "name": "walk_forward_ml",
+      "train_window": 60,
+      "test_window": 20
+    }
+  },
+  "save": {
+    "directory": "runs/wfv"
+  }
+}

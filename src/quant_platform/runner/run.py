@@ -1,167 +1,186 @@
 from __future__ import annotations
 
-import json
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import pandas as pd
 
-from quant_platform.execution.context import ExecutionContext
 from quant_platform.runner.config.loader import load_config, seed_everything
 from quant_platform.runner.config.models import BacktestConfig
-from quant_platform.runner.core import BacktestResult, run_backtest
+from quant_platform.runner.core import run_backtest, BacktestResult
 from quant_platform.runner.strategy_factory import create_strategy
+from quant_platform.execution.context import ExecutionContext
+from quant_platform.ui.data_validation import validate_market_data
+
+LOGGER = logging.getLogger(__name__)
 
 
 # ======================================================================
-# Market data loader
+# Load flat market data
 # ======================================================================
 
 
-def load_market_data(path: str) -> pd.DataFrame:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"Market data file not found: {path}")
+def _load_market_data(path: str | Path) -> pd.DataFrame:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Market data path does not exist: {path}")
 
-    if p.suffix.lower() == ".parquet":
-        try:
-            df = pd.read_parquet(p)
-        except Exception as exc:  # pragma: no cover - env specific
-            raise RuntimeError(
-                "Parquet requires pyarrow/fastparquet; install them or use CSV."
-            ) from exc
-    elif p.suffix.lower() == ".csv":
-        df = pd.read_csv(p)
-    else:
-        raise ValueError("Market data must be CSV or Parquet")
+    df = pd.read_csv(path)
 
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+    required = {"timestamp", "symbol", "close"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"CSV missing required columns: {missing}\nPresent: {df.columns.tolist()}"
+        )
 
-    if not isinstance(df.index, pd.MultiIndex):
-        if "timestamp" not in df.columns or "symbol" not in df.columns:
-            raise ValueError("Data must contain 'timestamp' and 'symbol'")
-        df = df.set_index(["timestamp", "symbol"]).sort_index()
-
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="raise")
+    df = df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
     return df
 
 
 # ======================================================================
-# Saving utilities
+# Execution context builder
 # ======================================================================
 
 
-def _cfg_save(cfg: BacktestConfig):
-    """
-    Safe accessor for cfg.save — handles older BacktestConfig
-    without .save if needed.
-    """
-    return getattr(cfg, "save", None)
-
-
-def _save_outputs(
-    result: BacktestResult,
-    cfg: BacktestConfig,
-    exec_ctx: ExecutionContext,
-    outdir: Path,
-) -> None:
-    """
-    Save Week-12 artifacts (equity, drawdowns, positions, trades, config).
-    """
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    save_cfg = _cfg_save(cfg)
-
-    # Equity & drawdowns
-    if save_cfg and getattr(save_cfg, "save_equity_curve", False):
-        result.equity_curve.to_csv(outdir / "equity.csv")
-        result.equity_curve.to_csv(outdir / "equity_curve.csv")
-        result.drawdowns.to_csv(outdir / "drawdown.csv")
-        result.drawdowns.to_csv(outdir / "drawdowns.csv")
-
-    # Last prices (always safe)
-    result.prices_last.to_csv(outdir / "prices_last.csv")
-
-    # Positions
-    if save_cfg and getattr(save_cfg, "save_positions", False):
-        pt = getattr(result, "positions_ts", None)
-        if pt is not None and not pt.empty:
-            pt.to_csv(outdir / "positions.csv", index=False)
-
-    # Trades
-    if save_cfg and getattr(save_cfg, "save_trades", False):
-        trades = getattr(exec_ctx.ledger, "trades", None)
-        if trades:
-            tdf = pd.DataFrame([t.model_dump() for t in trades])
-            tdf.to_csv(outdir / "trades.csv", index=False)
-
-    # Risk metrics + config snapshot
-    (outdir / "risk_metrics.json").write_text(json.dumps(result.risk_metrics, indent=2))
-    (outdir / "config.json").write_text(json.dumps(cfg.model_dump(), indent=2))
+def _build_execution_context(cfg: BacktestConfig) -> ExecutionContext:
+    return ExecutionContext(initial_cash=cfg.initial_cash)
 
 
 # ======================================================================
-# High-level runner
+# Main entrypoint
 # ======================================================================
 
 
 def run_from_config(
-    config_path: str | Path,
-    save_dir: Optional[str | Path] = None,
+    path: str | Path,
+    save_dir: str | Path | None = None,
 ) -> BacktestResult:
-    """
-    High-level orchestration entrypoint:
+    LOGGER.info("Loading config: %s", path)
+    cfg = load_config(path)
 
-        load config → seed RNG → load strategy + data →
-        construct ExecutionContext → run_backtest → save outputs.
-    """
-    cfg: BacktestConfig = load_config(config_path)
+    if save_dir is not None:
+        cfg.save.directory = str(save_dir)
+
+    LOGGER.info("Applying random seeds…")
     seed_everything(cfg)
 
-    # Strategy resolution
-    params = cfg.strategy.params or {}
-    name = params.get("name") or params.get("strategy")
-    if name is None:
-        raise ValueError("Strategy params must include 'name'")
-
-    strategy = create_strategy(name, params)
-
     if cfg.data_source is None:
-        raise ValueError("BacktestConfig must specify data_source")
+        raise ValueError("Config must provide `data_source`")
 
-    market_data = load_market_data(cfg.data_source)
+    LOGGER.info("Loading market data…")
+    market_data = _load_market_data(cfg.data_source)
 
-    # ExecutionContext (Week 11 engine + ledger)
-    exec_ctx = ExecutionContext()
+    # Validate flat structure first
+    validate_market_data(market_data)
 
-    # --- NEW: seed initial cash into the ledger ---
-    # Our TradeLedger -> PositionBook -> cash structure
-    try:
-        exec_ctx.ledger.position_book.cash = cfg.initial_cash
-    except AttributeError:
-        # Fallback if someone swaps in a different ledger implementation
-        pass
+    # ======================================================================
+    # 🔥 REQUIRED FIX #1 — Convert to MultiIndex for strategies like stat-arb
+    # ======================================================================
+    market_data = market_data.set_index(["timestamp", "symbol"]).sort_index()
 
-    # Run the backtest
-    result = run_backtest(
+    LOGGER.info("Market data converted to MultiIndex (timestamp, symbol)")
+
+    # ======================================================================
+    # Build strategy
+    # ======================================================================
+
+    params = dict(cfg.strategy.params)
+    strategy_name = params.pop("name", None)
+    if strategy_name is None:
+        raise ValueError("strategy.params.name must specify a registered strategy")
+
+    LOGGER.info("Creating strategy '%s'…", strategy_name)
+    strategy = create_strategy(strategy_name, params=params)
+
+    # ======================================================================
+    # Build execution context
+    # ======================================================================
+
+    LOGGER.info("Building execution context…")
+    exec_ctx = _build_execution_context(cfg)
+
+    # ======================================================================
+    # Run backtest
+    # ======================================================================
+
+    LOGGER.info("Running backtest…")
+
+    result: BacktestResult = run_backtest(
         strategy=strategy,
         market_data=market_data,
         execution_context=exec_ctx,
         config=cfg,
     )
 
-    # Decide output directory:
-    # CLI/Streamlit save_dir overrides config.save.directory
-    save_cfg = _cfg_save(cfg)
+    # ======================================================================
+    # Attach trade log
+    # ======================================================================
 
-    if save_dir is not None:
-        final_dir = Path(save_dir)
-    elif save_cfg and getattr(save_cfg, "directory", None):
-        final_dir = Path(save_cfg.directory)
-    else:
-        final_dir = None
+    result.trade_log = exec_ctx.ledger.trades.copy()
 
-    if final_dir is not None:
-        _save_outputs(result, cfg, exec_ctx, final_dir)
+    # ======================================================================
+    # Portfolio snapshots (MultiIndex-safe)
+    # ======================================================================
+
+    snapshots: list[dict[str, Any]] = []
+
+    # Iterate through timestamps (first level only)
+    for ts in market_data.index.get_level_values("timestamp").unique():
+        try:
+            bars = market_data.loc[ts]
+        except KeyError:
+            continue
+
+        # bars is a frame indexed by symbol
+        if isinstance(bars, pd.Series):
+            bars = bars.to_frame().T
+
+        price_map = {str(sym): float(row["close"]) for sym, row in bars.iterrows()}
+
+        snap = exec_ctx.get_portfolio_snapshot(price_map)
+        snap["timestamp"] = ts
+        snapshots.append(snap)
+
+    result.portfolio_snapshots = snapshots
+
+    # ======================================================================
+    # Save results
+    # ======================================================================
+
+    if cfg.save.directory:
+        _persist_results(cfg, result)
 
     return result
+
+
+# ======================================================================
+# Save outputs
+# ======================================================================
+
+
+def _persist_results(cfg: BacktestConfig, result: BacktestResult) -> None:
+    out_dir = Path(cfg.save.directory)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    LOGGER.info("Saving results to: %s", out_dir)
+
+    if cfg.save.save_equity_curve:
+        result.equity_curve.to_csv(out_dir / "equity_curve.csv")
+
+    if cfg.save.save_positions and result.positions_ts is not None:
+        result.positions_ts.to_csv(out_dir / "positions.csv", index=False)
+
+    if hasattr(result, "trade_log"):
+        import json
+
+        with open(out_dir / "trades.json", "w") as f:
+            json.dump(result.trade_log, f, indent=2)
+
+    if hasattr(result, "portfolio_snapshots"):
+        pd.DataFrame(result.portfolio_snapshots).to_csv(
+            out_dir / "portfolio_snapshots.csv",
+            index=False,
+        )

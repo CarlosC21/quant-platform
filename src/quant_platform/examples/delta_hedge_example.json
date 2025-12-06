@@ -1,0 +1,13 @@
+{
+  "initial_cash": 50000,
+  "data_source": "examples/data/small_md.csv",
+  "strategy": {
+    "params": {
+      "name": "delta_hedge",
+      "hedge_ratio": 1.0
+    }
+  },
+  "save": {
+    "directory": "runs/delta_hedge"
+  }
+}

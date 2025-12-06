@@ -43,14 +43,111 @@ class RunContext:
     market_data: Optional[pd.DataFrame] = None
     current_bar: Optional[pd.DataFrame] = None
 
+    # ==============================================================
+    # Week 12: Trading Convenience Methods (User-facing API)
+    # ==============================================================
+
+    def order_market(self, symbol: str, signed_qty: float):
+        """
+        Submit a market order.
+
+        Positive qty = BUY
+        Negative qty = SELL
+
+        This is the user-friendly interface: strategies do not need to know
+        about Order, TimeInForce, Venue, MarketDataSnapshot, etc.
+        """
+        from quant_platform.execution.models import Order, MarketDataSnapshot
+        from quant_platform.execution.enums import Side, OrderType, TimeInForce, Venue
+
+        if self.current_bar is None:
+            raise RuntimeError("order_market called before current_bar is set")
+
+        side = Side.BUY if signed_qty > 0 else Side.SELL
+        qty = abs(float(signed_qty))
+
+        mid = float(self.current_bar.loc[symbol, "close"])
+
+        snap = MarketDataSnapshot.from_bar(
+            symbol=symbol,
+            ts=self.timestamp,
+            close=mid,
+            spread_bps=2.0,
+        )
+
+        order = Order(
+            order_id=f"mkt_{symbol}_{self.bar_index}",
+            symbol=symbol,
+            side=side,
+            quantity=qty,
+            order_type=OrderType.MARKET,
+            limit_price=None,
+            time_in_force=TimeInForce.DAY,
+            venue=Venue.SIMULATED,
+            timestamp=self.timestamp.to_pydatetime(),
+            tags={"strategy": "custom"},
+        )
+
+        return self.execution_context.execute(order, snap)
+
+    def order_limit(self, symbol: str, signed_qty: float, limit_price: float):
+        """Submit a limit order at the given limit price."""
+        from quant_platform.execution.models import Order, MarketDataSnapshot
+        from quant_platform.execution.enums import Side, OrderType, TimeInForce, Venue
+
+        if self.current_bar is None:
+            raise RuntimeError("order_limit called before current_bar is set")
+
+        side = Side.BUY if signed_qty > 0 else Side.SELL
+        qty = abs(float(signed_qty))
+
+        mid = float(self.current_bar.loc[symbol, "close"])
+
+        snap = MarketDataSnapshot.from_bar(
+            symbol=symbol,
+            ts=self.timestamp,
+            close=mid,
+            spread_bps=2.0,
+        )
+
+        order = Order(
+            order_id=f"lmt_{symbol}_{self.bar_index}",
+            symbol=symbol,
+            side=side,
+            quantity=qty,
+            order_type=OrderType.LIMIT,
+            limit_price=float(limit_price),
+            time_in_force=TimeInForce.DAY,
+            venue=Venue.SIMULATED,
+            timestamp=self.timestamp.to_pydatetime(),
+            tags={"strategy": "custom"},
+        )
+
+        return self.execution_context.execute(order, snap)
+
+    def snapshot(self) -> Dict[str, float]:
+        """
+        Return structured portfolio snapshot:
+            cash, total_equity, positions, unrealized PnL, etc.
+        """
+        if self.current_bar is None:
+            raise RuntimeError("snapshot called before current_bar is set")
+
+        price_map = {
+            sym: float(row["close"]) for sym, row in self.current_bar.iterrows()
+        }
+        return self.execution_context.get_portfolio_snapshot(price_map)
+
+    def position(self, symbol: str):
+        """Get Position object from ExecutionContext (if exists)."""
+        return self.execution_context.position(symbol)
+
 
 @dataclass
 class BacktestResult:
     """
     Container for full backtest results — Week 12 compatible.
-
-    positions_ts:
-        Optional DataFrame of position snapshots per bar.
+    positions_ts: Optional DataFrame of position snapshots per bar.
     """
 
     equity_curve: pd.Series
@@ -86,11 +183,9 @@ def _extract_prices_for_ledger(
     bar_data: pd.DataFrame,
     price_col: str = "close",
 ) -> Dict[str, float]:
-    # Index = symbol
     if bar_data.index.name == "symbol":
         return {str(sym): float(row[price_col]) for sym, row in bar_data.iterrows()}
 
-    # MultiIndex
     if isinstance(bar_data.index, pd.MultiIndex):
         symbols = bar_data.index.get_level_values(-1)
         return {
@@ -98,7 +193,6 @@ def _extract_prices_for_ledger(
             for sym in symbols.unique()
         }
 
-    # Flat with 'symbol' column
     if "symbol" in bar_data.columns:
         return {
             str(row["symbol"]): float(row[price_col]) for _, row in bar_data.iterrows()
@@ -142,10 +236,7 @@ def _compute_risk_metrics(
     start = float(equity.iloc[0])
     end = float(equity.iloc[-1])
 
-    if start == 0.0:
-        cumulative_return = float("nan")
-    else:
-        cumulative_return = end / start - 1.0
+    cumulative_return = end / start - 1.0 if start != 0 else float("nan")
 
     drawdowns = _compute_drawdowns(equity)
     max_drawdown = float(drawdowns.min())
@@ -185,7 +276,6 @@ def run_backtest(
     equity_index: List[pd.Timestamp] = []
     last_prices: Optional[pd.DataFrame] = None
 
-    # Position snapshots per bar
     positions_records: List[Dict[str, Any]] = []
 
     ctx = RunContext(
@@ -211,17 +301,28 @@ def run_backtest(
 
         strategy.on_bar(ctx, bar_data)
 
-        # Portfolio valuation
+        # ---------------------------------------------------------
+        # Portfolio valuation via snapshot (Week 12)
+        # ---------------------------------------------------------
         prices_for_ledger = _extract_prices_for_ledger(bar_data, price_col=price_col)
-        equity = execution_context.ledger.portfolio_value(prices_for_ledger)
 
-        equity_values.append(float(equity))
+        if hasattr(execution_context, "get_portfolio_snapshot"):
+            snapshot = execution_context.get_portfolio_snapshot(prices_for_ledger)
+            equity_val = float(snapshot.get("total_equity"))
+        else:
+            equity_val = float(
+                execution_context.ledger.portfolio_value(prices_for_ledger)
+            )
+
+        equity_values.append(equity_val)
         equity_index.append(ts)
 
-        # Snapshot cumulative positions
-        ledger = execution_context.ledger
+        # ---------------------------------------------------------
+        # Position snapshots
+        # ---------------------------------------------------------
         try:
-            position_book = ledger.position_book.positions  # PositionBook.positions
+            ledger = execution_context.ledger
+            position_book = ledger.position_book.positions
             for sym, pos in position_book.items():
                 positions_records.append(
                     {
@@ -232,7 +333,6 @@ def run_backtest(
                     }
                 )
         except AttributeError:
-            # Fallback for simpler ledgers without PositionBook
             pass
 
     strategy.on_end(ctx)
